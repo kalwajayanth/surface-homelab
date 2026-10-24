@@ -37,6 +37,22 @@ for z in /sys/class/thermal/thermal_zone*/temp; do
 done
 
 # --- resources ---
+# --- power, if this machine has a battery ---
+BATT=""
+for b in /sys/class/power_supply/BAT*; do
+    [ -r "$b/capacity" ] || continue
+    BATT="$(cat "$b/capacity")%"
+    [ -r "$b/status" ] && BATT="$BATT ($(cat "$b/status"))"
+    break
+done
+AC_TEXT=""
+for a in /sys/class/power_supply/A*/online /sys/class/power_supply/ADP*/online; do
+    if [ -r "$a" ]; then
+        [ "$(cat "$a")" = "1" ] && AC_TEXT="mains" || AC_TEXT="ON BATTERY"
+        break
+    fi
+done
+
 DISK=$(df -h / | awk 'NR==2 {print $3" used of "$2" ("$5")"}')
 DISK_PCT=$(df / | awk 'NR==2 {gsub("%","",$5); print $5}')
 MEM=$(free -h | awk 'NR==2 {print $3" used of "$2}')
@@ -64,6 +80,7 @@ FLAGS=""
 [ "$TEMP_MAX" -ge "$TEMP_THRESHOLD" ] && FLAGS="${FLAGS}[HOT ${TEMP_MAX}C] "
 [ "${FAILED:-0}" -gt 0 ]      && FLAGS="${FLAGS}[${FAILED} failed] "
 [ "${DISK_PCT:-0}" -ge 85 ]   && FLAGS="${FLAGS}[DISK ${DISK_PCT}%] "
+[ "$AC_TEXT" = "ON BATTERY" ] && FLAGS="${FLAGS}[ON BATTERY] "
 [ -z "$FLAGS" ] && FLAGS="[ok] "
 
 {
@@ -79,6 +96,8 @@ echo "  Reboot required          : $REBOOT"
 echo
 echo "SYSTEM"
 echo "  Temperature (max zone)   : ${TEMP_MAX}C"
+[ -n "$BATT" ]    && echo "  Battery                  : $BATT"
+[ -n "$AC_TEXT" ] && echo "  Power source             : $AC_TEXT"
 echo "  Disk                     : $DISK"
 echo "  Memory                   : $MEM"
 echo "  Uptime                   : $UPTIME"

@@ -5,7 +5,7 @@
 set -uo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "Run with sudo."; exit 1; }
 
-for t in homelab-report homelab-temp homelab-lynis homelab-heartbeat; do
+for t in homelab-report homelab-temp homelab-lynis homelab-heartbeat homelab-power; do
     systemctl disable --now "$t.timer" 2>/dev/null || true
     rm -f "/etc/systemd/system/$t.timer" "/etc/systemd/system/$t.service"
 done

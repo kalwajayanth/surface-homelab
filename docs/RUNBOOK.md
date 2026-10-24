@@ -108,6 +108,36 @@ sudo cscli decisions delete --ip YOUR_IP
 sudo cscli decisions add --range 192.168.0.0/24 --type bypass --duration 8760h
 ```
 
+### Power cut
+
+You should get a `[POWER LOST]` mail within two minutes, with the battery
+percentage and a rough runtime estimate. The machine then:
+
+- warns once at the low threshold (default 20%)
+- emails and shuts down cleanly at the critical threshold (default 10%)
+
+**It will not come back on its own.** Someone has to press the power button
+when mains returns.
+
+If the outage looks like it will run long, shut it down early rather than
+draining a decade-old battery:
+
+```bash
+sudo poweroff
+```
+
+Check the state by hand:
+
+```bash
+cat /sys/class/power_supply/BAT*/capacity    # percentage
+cat /sys/class/power_supply/BAT*/status      # Charging / Discharging
+cat /sys/class/power_supply/A*/online        # 1 = mains, 0 = battery
+```
+
+If the external check went down without a `[POWER LOST]` mail arriving first,
+the machine lost power instantly rather than switching to battery -- which
+points at the battery itself rather than the mains supply.
+
 ### Unexpected reboot
 
 ```bash

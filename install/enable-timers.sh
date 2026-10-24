@@ -9,6 +9,12 @@ systemctl enable --now homelab-report.timer
 systemctl enable --now homelab-temp.timer
 systemctl enable --now homelab-lynis.timer
 
+# Only useful on a machine with a battery.
+if compgen -G '/sys/class/power_supply/BAT*' > /dev/null; then
+    systemctl enable --now homelab-power.timer
+    echo "Power/battery watch enabled."
+fi
+
 if grep -q '^HEARTBEAT_URL="https' /etc/homelab/homelab.env 2>/dev/null; then
     systemctl enable --now homelab-heartbeat.timer
     systemctl start homelab-heartbeat.service

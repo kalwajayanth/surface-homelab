@@ -42,7 +42,8 @@ Full walkthrough in [docs/SETUP.md](docs/SETUP.md).
 | Health digest | 08:00 daily | Always sends. Urgency in the subject line. |
 | Temperature | every 15 min | Silent unless over threshold, with a cooldown |
 | Lynis audit | 1st monthly | Hardening index plus findings |
-| Heartbeat | every 5 min | External service alerts if pings stop |
+| Power / battery | every 2 min | Silent on mains. Emails on AC loss or return, warns when low, shuts down cleanly when critical |
+| Heartbeat | every 5 min | External service alerts if pings stop. Carries battery state in the ping body |
 | Clean shutdown | on shutdown | Immediate mail, so you know it was deliberate |
 
 The heartbeat matters more than it looks. Every other check runs **on** the

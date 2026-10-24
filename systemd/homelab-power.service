@@ -1,0 +1,6 @@
+[Unit]
+Description=Homelab mains power and battery watch
+
+[Service]
+Type=oneshot
+ExecStart=/opt/homelab/scripts/power-watch.sh

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the mains power and battery watch
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target
