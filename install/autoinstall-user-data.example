@@ -1,0 +1,37 @@
+#cloud-config
+autoinstall:
+  version: 1
+
+  # Answer every question up front so nothing is asked on screen.
+  interactive-sections: []
+
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+
+  identity:
+    hostname: homelab
+    username: CHANGEME
+    # Generate a hash on any Linux box:
+    #   mkpasswd -m sha-512
+    # or: python3 -c "import crypt;print(crypt.crypt('yourpass',crypt.mksalt(crypt.METHOD_SHA512)))"
+    # Change the password after first login with: passwd
+    password: "REPLACE_WITH_YOUR_OWN_HASH"
+
+  ssh:
+    install-server: true
+    allow-pw: true
+
+  # Plain whole-disk layout, no LVM.
+  storage:
+    layout:
+      name: direct
+
+  # Skip the network wait so a boot with no network still reaches the login prompt.
+  late-commands:
+    - curtin in-target --target=/target -- systemctl mask systemd-networkd-wait-online.service
+    - curtin in-target --target=/target -- systemctl enable ssh
+
+  # Don't try to pull updates during install; we do that afterwards.
+  updates: security
+  shutdown: reboot

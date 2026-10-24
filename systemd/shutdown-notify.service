@@ -1,0 +1,22 @@
+# Emails on a CLEAN shutdown. Pairs with the heartbeat: the heartbeat
+# tells you the box stopped responding (~15 min later), this tells you
+# immediately that it was deliberate, so you know not to worry.
+#
+# Requires msmtp to be configured.
+
+[Unit]
+Description=Notify on shutdown
+DefaultDependencies=no
+Before=shutdown.target
+Conflicts=reboot.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+EnvironmentFile=-/etc/homelab/homelab.env
+ExecStart=/bin/true
+ExecStop=/bin/sh -c 'echo "$(hostname) is shutting down cleanly at $(date)" | mail -s "[shutdown] $(hostname)" "${ALERT_EMAIL:-root}"'
+TimeoutStopSec=30
+
+[Install]
+WantedBy=shutdown.target

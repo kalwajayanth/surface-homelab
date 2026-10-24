@@ -1,0 +1,17 @@
+# Copy to /etc/netplan/50-wifi.yaml, then:
+#   sudo chmod 600 /etc/netplan/50-wifi.yaml
+#   sudo netplan apply
+#
+# Indentation is SPACES only. Never tabs.
+# Interface name must match `ip -brief link` exactly.
+# Note the lowercase L in wlp1s0 -- it is not a digit 1.
+
+network:
+  version: 2
+  wifis:
+    wlp1s0:
+      dhcp4: true
+      optional: true
+      access-points:
+        "YOUR_SSID":
+          password: "YOUR_WIFI_PASSWORD"

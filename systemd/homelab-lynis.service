@@ -1,0 +1,7 @@
+[Unit]
+Description=Monthly Lynis audit
+
+[Service]
+Type=oneshot
+ExecStart=/opt/homelab/scripts/lynis-monthly.sh
+TimeoutStartSec=1800

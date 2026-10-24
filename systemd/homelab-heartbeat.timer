@@ -1,0 +1,9 @@
+[Unit]
+Description=Send the external heartbeat ping
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

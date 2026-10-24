@@ -1,0 +1,15 @@
+# Never commit real configuration or credentials.
+homelab.env
+*.env
+!*.env.example
+
+msmtprc
+*.pem
+*.key
+id_*
+!*.example
+
+# Local noise
+*.log
+*.swp
+.DS_Store

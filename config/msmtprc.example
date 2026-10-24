@@ -1,0 +1,22 @@
+# Copy to /etc/msmtprc and fill in. Then:  sudo chmod 600 /etc/msmtprc
+#
+# Needs a Gmail APP PASSWORD, not your account password:
+#   1. Enable 2-Step Verification on a PERSONAL Google account
+#   2. Create one at myaccount.google.com/apppasswords
+#
+# This file holds a live credential. Never commit the real one.
+
+defaults
+auth           on
+tls            on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+logfile        /var/log/msmtp.log
+
+account        gmail
+host           smtp.gmail.com
+port           587
+from           YOUR_EMAIL@gmail.com
+user           YOUR_EMAIL@gmail.com
+password       YOUR_16_CHAR_APP_PASSWORD
+
+account default : gmail

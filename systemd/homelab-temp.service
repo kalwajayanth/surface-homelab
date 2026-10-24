@@ -1,0 +1,6 @@
+[Unit]
+Description=Homelab temperature watch
+
+[Service]
+Type=oneshot
+ExecStart=/opt/homelab/scripts/temp-watch.sh

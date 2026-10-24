@@ -1,0 +1,9 @@
+[Unit]
+Description=Run the homelab temperature watch
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=15min
+
+[Install]
+WantedBy=timers.target

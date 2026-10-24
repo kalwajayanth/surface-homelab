@@ -1,0 +1,18 @@
+# The Marvell AVASTAR chip in Surface devices drops its connection when
+# idle if power saving is left on. For a headless box that means it
+# silently disappears from the network.
+#
+# Change wlp1s0 to match your interface (ip -brief link).
+# Check the path with `which iw` -- it may be /usr/bin/iw.
+
+[Unit]
+Description=Disable WiFi power saving
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/iw dev wlp1s0 set power_save off
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+[Unit]
+Description=Daily homelab health report
+
+[Service]
+Type=oneshot
+ExecStart=/opt/homelab/scripts/health-report.sh

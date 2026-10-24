@@ -1,0 +1,8 @@
+[Unit]
+Description=External heartbeat ping (dead-man's switch)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/homelab/scripts/heartbeat.sh
