@@ -223,6 +223,22 @@ re-run `enable-timers.sh`. It runs as `powerMonitor.timer`. If you already had
 a hand-made unit with that name, `install.sh` replaces it, so copy the ping
 URL out of it first (`systemctl cat powerMonitor.service`).
 
+**Monthly backup** (needs mail working). Everything that exists only on this
+server — configs, firewall and CrowdSec state, SSH keys, package lists,
+Uptime Kuma's data — is encrypted and emailed to you on the 1st of each
+month. Create the passphrase, then **save it in your password manager**:
+
+```bash
+sudo sh -c 'umask 077; openssl rand -base64 32 > /etc/homelab/backup.pass'
+sudo cat /etc/homelab/backup.pass      # copy this into your password manager
+sudo /opt/homelab/scripts/backup.sh    # test: a "[backup]" mail with an attachment
+sudo ./install/enable-timers.sh        # picks up the backup timer
+```
+
+Without the saved passphrase the backups are useless after a disk failure —
+the only other copy is on the disk that failed. Restore steps are in the
+RUNBOOK.
+
 **Shutdown notice** (optional, needs mail working). `install.sh` has already
 copied the unit; it just needs enabling. `--now` matters: the mail is sent
 when the unit is *stopped*, so it has to be running first.

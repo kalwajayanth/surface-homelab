@@ -1,0 +1,10 @@
+[Unit]
+Description=Monthly encrypted homelab backup, emailed
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/homelab/scripts/backup.sh
+Nice=10
+TimeoutStartSec=900

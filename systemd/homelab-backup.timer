@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the monthly encrypted homelab backup
+
+[Timer]
+# An hour after the monthly Lynis audit, so the two never overlap.
+OnCalendar=*-*-01 10:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

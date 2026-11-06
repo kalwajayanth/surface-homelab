@@ -13,7 +13,7 @@ reboots unattended, and the server has to report its own state by email.
 
 | Path | What it is |
 |---|---|
-| `scripts/` | Health report, temperature watch, Lynis audit, heartbeat |
+| `scripts/` | Health report, temperature watch, power watch, Lynis audit, heartbeat, backup |
 | `systemd/` | Timers and units for all of the above |
 | `config/` | Example configs — Wi-Fi, SSH hardening, mail, settings |
 | `install/` | Install, enable and uninstall scripts |
@@ -45,6 +45,7 @@ Full walkthrough in [docs/SETUP.md](docs/SETUP.md).
 | Power / battery | every 2 min | Silent on mains. Emails on AC loss or return, warns when low, shuts down cleanly when critical |
 | Heartbeat | every 5 min | External service alerts if pings stop. Carries battery state in the ping body |
 | Clean shutdown | on shutdown | Immediate mail, so you know it was deliberate |
+| Backup | 1st monthly, 10:00 | Encrypted archive of the server-only config and Uptime Kuma data, emailed as an attachment. Daily report flags it if over 35 days old |
 
 The heartbeat matters more than it looks. Every other check runs **on** the
 server, so if the server dies you get silence, not an alert. A dead-man's

@@ -53,6 +53,19 @@ for a in /sys/class/power_supply/A*/online /sys/class/power_supply/ADP*/online; 
     fi
 done
 
+# --- backups: age of the newest archive, if backups are set up ---
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/homelab}"
+BACKUP_ON=no
+[ -s "${BACKUP_PASSPHRASE_FILE:-/etc/homelab/backup.pass}" ] && BACKUP_ON=yes
+LAST_BACKUP=$(ls -1t "$BACKUP_DIR"/homelab-*.tar.gz.gpg 2>/dev/null | head -1)
+BACKUP_AGE=""
+if [ -n "$LAST_BACKUP" ]; then
+    BACKUP_AGE=$(( ( $(date +%s) - $(stat -c %Y "$LAST_BACKUP") ) / 86400 ))
+    BACKUP_TEXT="$(basename "$LAST_BACKUP") ($BACKUP_AGE days ago)"
+else
+    BACKUP_TEXT="none yet"
+fi
+
 DISK=$(df -h / | awk 'NR==2 {print $3" used of "$2" ("$5")"}')
 DISK_PCT=$(df / | awk 'NR==2 {gsub("%","",$5); print $5}')
 MEM=$(free -h | awk 'NR==2 {print $3" used of "$2}')
@@ -83,6 +96,10 @@ FLAGS=""
 [ "${FAILED:-0}" -gt 0 ]      && FLAGS="${FLAGS}[${FAILED} failed] "
 [ "${DISK_PCT:-0}" -ge 85 ]   && FLAGS="${FLAGS}[DISK ${DISK_PCT}%] "
 [ "$AC_TEXT" = "ON BATTERY" ] && FLAGS="${FLAGS}[ON BATTERY] "
+# Monthly backups: flag if the newest is over 35 days old.
+if [ "$BACKUP_ON" = yes ] && [ -n "$BACKUP_AGE" ] && [ "$BACKUP_AGE" -gt 35 ]; then
+    FLAGS="${FLAGS}[BACKUP OLD] "
+fi
 [ -z "$FLAGS" ] && FLAGS="[ok] "
 
 {
@@ -102,6 +119,7 @@ echo "  Temperature (max zone)   : ${TEMP_MAX}C"
 [ -n "$AC_TEXT" ] && echo "  Power source             : $AC_TEXT"
 echo "  Disk                     : $DISK"
 echo "  Memory                   : $MEM"
+[ "$BACKUP_ON" = yes ] && echo "  Last backup              : $BACKUP_TEXT"
 echo "  Uptime                   : $UPTIME"
 echo "  Load average             : $LOAD"
 echo

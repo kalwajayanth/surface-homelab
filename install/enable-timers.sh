@@ -15,6 +15,13 @@ if compgen -G '/sys/class/power_supply/BAT*' > /dev/null; then
     echo "Power/battery watch enabled."
 fi
 
+if [ -s /etc/homelab/backup.pass ]; then
+    systemctl enable --now homelab-backup.timer
+    echo "Monthly encrypted backup enabled."
+else
+    echo "No /etc/homelab/backup.pass -- skipping the backup timer (see docs/SETUP.md)."
+fi
+
 if grep -q '^HEARTBEAT_URL="https' /etc/homelab/homelab.env 2>/dev/null; then
     systemctl enable --now powerMonitor.timer
     systemctl start powerMonitor.service
