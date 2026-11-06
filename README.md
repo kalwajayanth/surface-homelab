@@ -44,7 +44,8 @@ Full walkthrough in [docs/SETUP.md](docs/SETUP.md).
 | Lynis audit | 1st monthly | Hardening index plus findings |
 | Power / battery | every 2 min | Silent on mains. Emails on AC loss or return, warns when low, shuts down cleanly when critical |
 | Heartbeat | every 5 min | External service alerts if pings stop. Carries battery state in the ping body |
-| Clean shutdown | on shutdown | Immediate mail, so you know it was deliberate |
+| Clean shutdown | on shutdown | Immediate mail saying reboot or power-off, and who asked (`sudo reboot`, power button, critical battery) |
+| Back up | on every boot | `[back up]` after a clean shutdown, `[BACK UP] … UNCLEAN` otherwise, with how long it was down. Retries for 30 min while the network comes up |
 | Backup | 1st monthly, 10:00 | Encrypted archive of the server-only config and Uptime Kuma data, emailed as an attachment. Daily report flags it if over 35 days old |
 
 The heartbeat matters more than it looks. Every other check runs **on** the

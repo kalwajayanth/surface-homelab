@@ -15,6 +15,13 @@ if compgen -G '/sys/class/power_supply/BAT*' > /dev/null; then
     echo "Power/battery watch enabled."
 fi
 
+# Shutdown and back-up-again notices. shutdown-notify must be running so
+# that stopping it at shutdown sends the mail; boot-notify only runs at boot
+# (starting it now would announce a boot that did not happen).
+systemctl enable --now shutdown-notify.service
+systemctl enable boot-notify.service
+echo "Shutdown and boot notices enabled."
+
 if [ -s /etc/homelab/backup.pass ]; then
     systemctl enable --now homelab-backup.timer
     echo "Monthly encrypted backup enabled."

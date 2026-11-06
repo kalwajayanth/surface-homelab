@@ -1,15 +1,15 @@
-# Emails on a CLEAN shutdown or reboot, so you know it was deliberate.
-# This is an email, separate from the healthchecks.io heartbeat: the
-# heartbeat only notices the box has gone quiet (~15 min later); this
-# mail arrives immediately and says "this was on purpose".
+# Emails on a CLEAN shutdown or reboot, so you know it was deliberate, and
+# leaves a marker so boot-notify.service can report the next boot as
+# "back up after a clean reboot" rather than "after an unclean shutdown".
+# Separate from the healthchecks.io heartbeat, which only notices the box
+# has gone quiet (~15 min later).
 #
 # How it works: the unit is started at boot and does nothing. When the
-# system shuts down, systemd stops it, and ExecStop sends the mail.
+# system shuts down, systemd stops it, and ExecStop runs the script.
 # Ordering it After= the network and DNS means that at shutdown it is
 # stopped BEFORE Wi-Fi and the resolver go down, so the mail can leave.
 #
-# Requires msmtp to be configured. Enable with:
-#   sudo systemctl enable --now shutdown-notify.service
+# Requires msmtp. Enabled by install/enable-timers.sh.
 
 [Unit]
 Description=Email notice on clean shutdown or reboot
@@ -19,9 +19,8 @@ After=network-online.target nss-lookup.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-EnvironmentFile=-/etc/homelab/homelab.env
 ExecStart=/bin/true
-ExecStop=/bin/sh -c 'echo "$$(hostname) is shutting down cleanly at $$(date)" | mail -s "[shutdown] $$(hostname)" "$${ALERT_EMAIL:-root}"'
+ExecStop=/opt/homelab/scripts/shutdown-notify.sh
 TimeoutStopSec=30
 
 [Install]

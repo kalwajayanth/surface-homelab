@@ -239,12 +239,17 @@ Without the saved passphrase the backups are useless after a disk failure —
 the only other copy is on the disk that failed. Restore steps are in the
 RUNBOOK.
 
-**Shutdown notice** (optional, needs mail working). `install.sh` has already
-copied the unit; it just needs enabling. `--now` matters: the mail is sent
-when the unit is *stopped*, so it has to be running first.
+**Shutdown and boot notices** are enabled by `enable-timers.sh`. Going down
+cleanly sends `[shutdown] HOST (reboot|power-off)`; coming back sends
+`[back up] HOST after N min (clean reboot)`, or `[BACK UP] HOST after an
+UNCLEAN shutdown` if the previous boot ended without one. A reboot that sends
+the first but never the second is the cue to go and look at the machine.
+
+Test the shutdown side without rebooting — this sends a `[shutdown test]`
+mail and, deliberately, leaves no clean-shutdown marker:
 
 ```bash
-sudo systemctl enable --now shutdown-notify.service
+sudo systemctl restart shutdown-notify.service
 ```
 
 ---

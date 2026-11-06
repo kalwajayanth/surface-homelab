@@ -9,8 +9,10 @@ for t in homelab-report homelab-temp homelab-lynis powerMonitor homelab-power ho
     systemctl disable --now "$t.timer" 2>/dev/null || true
     rm -f "/etc/systemd/system/$t.timer" "/etc/systemd/system/$t.service"
 done
-systemctl disable shutdown-notify.service 2>/dev/null || true
-rm -f /etc/systemd/system/shutdown-notify.service
+for s in shutdown-notify boot-notify; do
+    systemctl disable "$s.service" 2>/dev/null || true
+    rm -f "/etc/systemd/system/$s.service"
+done
 systemctl daemon-reload
 rm -rf /opt/homelab/scripts
 

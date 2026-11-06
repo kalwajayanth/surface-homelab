@@ -1,0 +1,20 @@
+# Emails once per boot: "[back up]" after a clean shutdown, "[BACK UP] ...
+# UNCLEAN" otherwise, with how long the server was down. Pairs with
+# shutdown-notify.service, which leaves the marker this reads.
+#
+# Type=exec so boot does not wait for it: the script keeps retrying the mail
+# for up to 30 minutes in the background while the network comes up.
+#
+# Requires msmtp. Enabled by install/enable-timers.sh.
+
+[Unit]
+Description=Email notice when the server is back up
+Wants=network-online.target
+After=network-online.target nss-lookup.target
+
+[Service]
+Type=exec
+ExecStart=/opt/homelab/scripts/boot-notify.sh
+
+[Install]
+WantedBy=multi-user.target

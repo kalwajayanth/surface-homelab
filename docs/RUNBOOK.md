@@ -154,7 +154,10 @@ points at the battery itself rather than the mains supply.
 
 ### Did not come back after a reboot
 
-First find out whether it is actually off: `tailscale status` on another
+The mails tell you first: a `[shutdown] … (reboot)` with no `[back up]`
+following within a few minutes means the restart did not complete.
+
+Then find out whether it is actually off: `tailscale status` on another
 device, or the healthchecks.io dashboard. With no screen, a running machine
 looks exactly like a dead one.
 
