@@ -65,23 +65,29 @@ happening earlier than Linux.
 
 **Attempt 4 — blind navigation.** I asked for a sequence of arrow keys and
 Enters to change the UEFI setting without seeing it. I was talked out of it, and
-on reflection that was right: the Security page has a UEFI password field
-directly above the Secure Boot setting. A sequence off by one keypress sets a
-password I would not know and could not see, permanently locking the firmware.
+on reflection that was right: Surface UEFI keeps an Administrator Password
+setting a few entries away from Secure Boot Control (Stage 6 has the real
+menu). A sequence off by one keypress could set a password I would not know
+and could not see, permanently locking the firmware.
 Nearby options can also disable the USB port, killing my only keyboard, or the
 Wi-Fi, killing my only network.
 
 **The diagnosis, which I confirmed myself.** I connected an ordinary laptop to
 the same TV over HDMI and entered its BIOS. Same behaviour — nothing on the TV.
 
-So it is not a Surface fault, not a cable fault, and not an adapter fault. The
+So it is not a cable fault and not an adapter fault. On the Surface, the
 firmware's basic graphics driver initialises the **internal panel only**.
-External outputs start working the moment Windows or Linux loads a real
-graphics driver, and not one instant before. Firmware screens, the GRUB menu,
-early boot errors and BitLocker prompts are all on the wrong side of that line.
+External output starts once Windows or Linux loads a real graphics driver,
+and not before. Firmware screens, the GRUB menu, early boot errors and
+BitLocker prompts are all on the wrong side of that line.
 
 **This is the single most useful thing I learned in the whole project**, and it
 is poorly documented anywhere.
+
+*In hindsight:* the laptop test proved it is not my cable or TV, but not that
+it is universal. Plenty of laptops behave this way; desktops and some laptops
+do show their firmware on an external screen. The rule holds for the Surface,
+which is what mattered here.
 
 ---
 
@@ -161,11 +167,20 @@ I set it to **Disabled**.
 
 **I deliberately did not touch "Delete all secure boot keys."** That erases the
 firmware's trust database. Restoring it requires a "restore factory keys" option
-that may not exist on this firmware, and without it Windows may refuse to boot
-at all. Disabling is reversible; deleting may not be.
+that may not exist on this firmware. Disabling is reversible; deleting may not be.
+
+*In hindsight:* my reason at the time — "Windows may refuse to boot" — was
+backwards. With the keys deleted the firmware drops into "setup mode", which
+checks nothing, so Windows and everything else still boots. The real cost is
+that Secure Boot is silently gone until the factory keys are restored, and
+BitLocker asks for its recovery key again. Leaving it alone was still right.
 
 I also left the Administrator Password field alone, for the same reason that
 made blind navigation too risky.
+
+The same UEFI has **Kiosk Mode → Battery Limit**, which caps charging at 50%.
+It is enabled on this machine — the best protection a decade-old battery that
+stays plugged in all day can get.
 
 ---
 
@@ -214,11 +229,12 @@ dangerous possibility.
 Then the actual cause emerged. With the panel removed, I had been protecting the
 exposed internals by **wrapping the device in bubble wrap**.
 
-**The Surface Pro 3 cools itself through its magnesium chassis.** The body *is*
-the heat sink; the small fan is secondary. Bubble wrap is an insulator wrapped
-directly around the cooling surface. Under sustained load — and BitLocker
-decryption hammers the CPU and SSD for an hour — the CPU hit its thermal limit
-and the firmware cut power to protect the hardware.
+**The Surface Pro 3 has two halves to its cooling.** A small fan blows hot air
+out through vents around the edge of the case, and the magnesium shell spreads
+the rest of the heat into the room. Bubble wrap blocked the vents *and*
+insulated the shell. Under sustained load — and BitLocker decryption keeps the
+CPU and SSD busy for an hour — the CPU hit its thermal limit and the machine
+cut power to protect the hardware.
 
 It is also plastic held against a hot metal surface next to an aged lithium
 battery, which is a fire risk rather than merely a performance one.
@@ -270,6 +286,9 @@ sudo mount /dev/sda2 /mnt
 ls /mnt/home        # empty — no user account
 ```
 
+(Run `lsblk` first: booted from USB, the stick can take the name `sda`. The
+SSD is the ~119G disk.)
+
 An empty `/home` is the definitive test. Worth knowing before reinstalling
 blind, because the symptom points somewhere else entirely.
 
@@ -290,19 +309,23 @@ see, nothing to click, so a flickering console cannot derail it.
 
 **The installer ignored it and went interactive anyway.**
 
-The most likely cause, which I never fully confirmed: Windows silently appends
-`.txt` to files saved from Notepad unless the filename is wrapped in quotes, and
-**View → File name extensions** is off by default so it is invisible.
+At the time I blamed Windows, which silently appends `.txt` to files saved from
+Notepad unless the filename is wrapped in quotes, with **View → File name
+extensions** off by default so it is invisible.
 
-There is an override I did not end up needing, which forces the datasource on
-the GRUB kernel line:
+*In hindsight, the real cause was almost certainly simpler:* the installer
+never looks in an `autoinstall/` folder on the stick by itself. The kernel
+parameter I thought of as an optional override is required:
 
 ```
-autoinstall ds=nocloud;s=/cdrom/autoinstall/
+autoinstall ds=nocloud\;s=/cdrom/autoinstall/
 ```
 
-I am keeping the autoinstall files in this repo as an alternative route, in case
-the interactive installer proves unusable on someone else's hardware.
+…and the backslash matters, because GRUB treats a bare `;` as the end of the
+command and drops the rest. On 24.04 and later an `autoinstall.yaml` at the
+root of the stick is picked up without the `ds=` part. I never got autoinstall
+working myself, but with those two fixes it should; the files stay in this repo
+as an alternative route, with the corrected steps in `install/README.md`.
 
 ---
 
@@ -331,9 +354,11 @@ My installer choices:
 **Phone USB tethering.** The interface appeared as `usb0`, then
 `enx12cfaf5275ee`, in state DOWN.
 
-**`dhclient` does not exist on Ubuntu 24.04.** It was removed in favour of
-netplan and `systemd-networkd`. Every older tutorial that reaches for `dhclient`
-is now wrong.
+**`dhclient` is not installed on Ubuntu 24.04.** Ubuntu dropped it from the
+default install in 23.04 (ISC DHCP is end-of-life; `dhcpcd` replaced it), and on
+Server the DHCP client is built into `systemd-networkd`, configured through
+netplan. You *can* still `apt install isc-dhcp-client`, but every older tutorial
+that reaches for `dhclient` assumes something that is no longer there.
 
 I configured it via netplan instead:
 
@@ -351,16 +376,25 @@ Address obtained: `10.30.57.69`.
 **SSH would not connect — timeout, not refusal.** Two separate causes, which I
 found in sequence:
 
-1. **The SSH service was `inactive`.** Installed but never started. Fixed with
-   `systemctl enable --now ssh`.
+1. **The SSH service was `inactive`.** I took that to mean installed but never
+   started, and ran `systemctl enable --now ssh`.
+
+   *In hindsight this was not a fault.* On 24.04 `ssh.service` reads
+   `inactive` until the first connection arrives: a separate `ssh.socket`
+   holds port 22 and starts sshd on demand. The installer had put
+   openssh-server on correctly (the dpkg log confirms it). The right checks
+   are `systemctl status ssh.socket` or `ss -tlnp | grep :22`. Cause 2 alone
+   explains the timeout.
 2. **My laptop and the server were on different networks.** The laptop sat on
    `10.140.96.117` via the phone's *Wi-Fi hotspot*; the server on `10.30.57.69`
    via *USB tethering*. Android places hotspot clients and USB-tethered devices
    on separate subnets with no routing between them. Both were online. Neither
    could see the other.
 
-A timeout means no path; a refusal means a path with nothing listening. That
-distinction saved me a lot of guessing.
+A timeout means nothing answered — no route, or a firewall silently dropping
+the packets. A refusal means the host is reachable and actively said no —
+usually nothing listening on that port. That distinction saved me a lot of
+guessing.
 
 **My solution: Tailscale.** Installed on the server, which obtained
 `100.124.178.42`. Tailscale connects devices regardless of the network each is
@@ -384,8 +418,15 @@ mwifiex_pcie wlp1s0: renamed from mlan0
 Firmware loaded, chip active, interface present, no errors. **The hardware was
 fine all along** — the installer environment had been the problem.
 
-**`nmcli` does not exist on Ubuntu Server.** NetworkManager is not installed;
-netplan is the interface. Another case where common tutorials do not apply.
+**`nmcli` is not on a fresh Ubuntu Server.** NetworkManager is not installed by
+default; netplan is the interface. Another case where common tutorials do not
+apply.
+
+*Later note:* installing Cockpit (below) pulls NetworkManager in, so `nmcli`
+exists on my server now. It leaves the Wi-Fi alone — `nmcli dev` shows
+`wlp1s0` as `unmanaged`, because netplan hands it to `systemd-networkd`. Keep
+it that way: Ubuntu's NetworkManager config sets `wifi.powersave = 3`, which
+would switch power saving back on if it ever took over the interface.
 
 I configured `/etc/netplan/50-wifi.yaml` with `wifis:`, `dhcp4: true`,
 `optional: true` and the access point credentials, locked it to mode 600, and
@@ -401,8 +442,9 @@ So I pinned it. On the TP-Link router:
 
 **Advanced → Network → DHCP Server → Address Reservation → Add**
 
-I bound the server's Wi-Fi MAC (`c0:33:5e:1c:a2:89`, shown as `link/ether` in
-`ip -brief link`) to `192.168.0.6`, enabled the entry and saved. TP-Link's
+I bound the server's Wi-Fi MAC (`c0:33:5e:1c:a2:89`, the third column of
+`ip -brief link`, or the `link/ether` value in `ip link show wlp1s0`) to
+`192.168.0.6`, enabled the entry and saved. TP-Link's
 interface wants the MAC with hyphens rather than colons. On older TP-Link
 firmware the same setting lives under **DHCP → Address Reservation**.
 
@@ -435,6 +477,11 @@ The split is intentional. Cockpit authenticates against system accounts and is
 useful from any device in the house, so LAN exposure is a fair trade. Uptime
 Kuma has its own login and no reason to be reachable by every device on the
 network, so it stays on loopback.
+
+*Later change:* I tightened Cockpit too. It is a password login to a root
+terminal, and nobody else in the house needs it, so UFW now allows 9090 only on
+the `tailscale0` interface. From the LAN address it times out; from my own
+devices over Tailscale it works as before, at home or away.
 
 Both also work from outside the house over Tailscale, using `100.124.178.42` in
 place of the LAN address, with no router changes and nothing exposed to the
@@ -479,7 +526,8 @@ Checking the file is not the same as checking the running configuration.
 `sshd -T` is the only honest test.
 
 **I also applied:**
-- UFW, allowing OpenSSH **before** enabling it, plus 9090 for Cockpit
+- UFW, allowing OpenSSH **before** enabling it, plus 9090 for Cockpit (later
+  limited to Tailscale — see Stage 13)
 - `unattended-upgrades` for automatic security patching
 - Timezone set to `Asia/Kolkata`, so log timestamps stopped being misleading
 - **Changed my Wi-Fi password on the router** — it had been written in plain
@@ -507,6 +555,15 @@ close would suspend the server.
 
 **Console blanking** via `consoleblank=60` in GRUB.
 
+**Boot wait masked — or so I thought.** I masked the service that holds up boot
+waiting for a network. *In hindsight:* checking the server weeks later, I had
+typed `systemd-network-wait-online` (missing a `d`) and then
+`systemd-networkd-wait-online.services` (extra `s`). `systemctl mask` accepts
+any name without complaint, so both "worked" and the real
+`systemd-networkd-wait-online.service` stayed on. Cockpit had also added
+`NetworkManager-wait-online`. Always confirm with
+`systemctl is-enabled <unit>` → `masked`.
+
 **Tailscale confirmed enabled at boot**, so remote access survives a restart.
 
 **Then a deliberate reboot with nothing attached**, followed by SSH from my
@@ -523,15 +580,18 @@ I installed it natively rather than in Docker, since it needs to read host logs.
 *bouncer* acts. Without a bouncer, CrowdSec watches and logs but never blocks —
 which looks like it is working.
 
-The documented `crowdsec-firewall-bouncer-iptables` service was not found.
-Ubuntu 24.04 uses nftables by default, so
-`crowdsec-firewall-bouncer-nftables` is the correct package.
+I installed `crowdsec-firewall-bouncer-iptables`, then
+`systemctl status crowdsec-firewall-bouncer-iptables` said the service did not
+exist. It doesn't: both bouncer packages install a service called
+**`crowdsec-firewall-bouncer`**, and that one was running fine. The iptables
+package is a sound choice on 24.04 — `iptables --version` reports `nf_tables`,
+so its rules land in nftables anyway.
 
 I verified with `cscli bouncers list` — an empty result means nothing is
 enforcing.
 
-**I whitelisted myself before anything else**, so a mistyped login cannot cause
-a lockout:
+**I tried to whitelist myself before anything else**, so a mistyped login cannot
+cause a lockout:
 
 ```bash
 sudo cscli decisions add --range 192.168.0.0/24 --type bypass --duration 8760h
@@ -542,7 +602,18 @@ The second covers the entire Tailscale range. Tailscale addresses look unrelated
 (`100.103.x`, `100.112.x`, `100.91.x`) but all fall inside `100.64.0.0/10`, so
 one entry replaces per-device entries and covers future devices automatically.
 
-Note the one-year expiry on both.
+*In hindsight, this protected nothing.* CrowdSec accepts any word as a decision
+type, so "bypass" was stored and showed up in `cscli decisions list` — but the
+firewall bouncer only acts on `ban` and ignores everything else. A ban on my own
+laptop would still have been enforced. The real mechanism is an allowlist:
+
+```bash
+sudo cscli allowlists create homelab -d "LAN and tailnet"
+sudo cscli allowlists add homelab 192.168.0.0/24 100.64.0.0/10
+```
+
+A decision that looks right in a list is not the same as one that does
+anything — the same lesson as `sshd -T` versus reading the config file.
 
 ---
 
@@ -571,19 +642,26 @@ filesystem. Keeping Docker behind `sudo` is the safer posture.
 
 A server nobody can see has to report on itself.
 
+*A note on timing:* I wrote these scripts well before I deployed them. For a
+while the server had only a hand-made heartbeat timer and the Lynis package's
+own daily scan, and the docs claimed more than was running. A fact-check
+against the live box caught it; everything below was deployed on
+2026-11-06 and confirmed by the test mails arriving.
+
 **Mail transport:** `msmtp` relaying to Gmail, which requires an **app
 password**, which requires 2-Step Verification, on a **personal** account.
 Workspace accounts generally block SMTP, and server scripts should not hold a
 work credential. The password sits in `/etc/msmtprc`, mode 600 — a live
 credential on disk, revocable from Google's account page.
 
-**Four checks, two deliberately different patterns:**
+**Five checks, two deliberately different patterns:**
 
 | Check | Schedule | Behaviour |
 |---|---|---|
 | Health digest | 08:00 daily | **Always** sends |
 | Temperature | every 15 min | **Silent** unless over 75°C, 3-hour cooldown |
 | Lynis audit | 1st monthly | Hardening index and findings |
+| Power / battery | every 2 min | **Silent** on mains; mails on AC loss or return, warns at 20%, clean shutdown at 10% |
 | Shutdown notice | on shutdown | Immediate, so a deliberate reboot is obvious |
 
 **Why the digest always sends.** A report that only arrives when something is
@@ -614,7 +692,10 @@ alert. Outbound-only, so it works behind the firewall and Tailscale with nothing
 exposed.
 
 This is the only alert that survives its own host, and it is the most important
-one in the whole setup.
+one in the whole setup. The timer is called `powerMonitor`, because the ping
+body carries battery percentage, mains/battery state and temperature — so
+when a DOWN alert arrives, the last ping in the healthchecks log shows the
+power state at the moment the server went quiet.
 
 I paired it with a **clean-shutdown notice**, so a deliberate reboot produces an
 immediate "this was intentional" mail rather than fifteen minutes of worry.
@@ -643,13 +724,16 @@ immediate "this was intentional" mail rather than fifteen minutes of worry.
 - `sshd -T` shows the *running* config; reading the file is not verification
 - sshd takes the **first** occurrence of a setting, so filename ordering decides
   which file wins
-- `dhclient` and `nmcli` are both absent on Ubuntu Server 24.04 — netplan is the
-  interface
+- `dhclient` and `nmcli` are not installed by default on Ubuntu Server 24.04 —
+  netplan is the interface
 - `ls /home` on a mounted install tells you instantly whether setup ever
   completed
-- A **timeout** means no network path; a **refusal** means a path with nothing
-  listening
-- CrowdSec without a bouncer detects but never blocks
+- A **timeout** means nothing answered (no route, or a firewall dropping
+  packets); a **refusal** means the host is reachable and said no
+- CrowdSec without a bouncer detects but never blocks, and only `ban`
+  decisions are enforced — allowlist yourself with `cscli allowlists`
+- `systemctl mask` accepts misspelled names silently — check with
+  `systemctl is-enabled`
 - Docker's published ports bypass UFW entirely
 - A reserved DHCP address is not optional on a headless box — everything
   downstream assumes it
@@ -665,8 +749,9 @@ immediate "this was intentional" mail rather than fifteen minutes of worry.
 | **OS** | Ubuntu Server 24.04.5 LTS |
 | **Network** | Wi-Fi on a reserved address, plus a mesh VPN for remote access |
 | **Access** | SSH keys only, passwords disabled, verified with `sshd -T` |
-| **Firewall** | UFW, plus CrowdSec with an nftables bouncer |
-| **Updates** | Unattended security upgrades, reboot flagged in the daily report |
-| **Monitoring** | Daily digest, temperature watch, monthly audit, external heartbeat, shutdown notice |
-| **Services** | Cockpit on the LAN, Uptime Kuma on loopback |
+| **Firewall** | UFW, plus CrowdSec with the firewall bouncer (iptables package, nf_tables backend) |
+| **Updates** | Unattended security upgrades |
+| **Monitoring** | Daily email digest, temperature watch, power/battery watch, monthly Lynis audit, external heartbeat (`powerMonitor`), shutdown notice |
+| **Battery** | UEFI Battery Limit on (50% cap) |
+| **Services** | Cockpit over Tailscale only, Uptime Kuma on loopback |
 | **Thermals** | 32–38°C idle, down from 79°C |

@@ -38,7 +38,7 @@ sudo cscli alerts list
 sudo ufw status
 
 # Timers
-systemctl list-timers --all | grep homelab
+systemctl list-timers --all | grep -E 'homelab|powerMonitor'
 sudo journalctl -u homelab-report.service -n 30 --no-pager
 
 # Mail
@@ -59,7 +59,7 @@ Mail, timer, or the whole box. Check the heartbeat service first — if that
 also stopped, the machine is down and the problem is physical.
 
 ```bash
-systemctl list-timers --all | grep homelab
+systemctl list-timers --all | grep -E 'homelab|powerMonitor'
 sudo journalctl -u homelab-report.service -n 30 --no-pager
 sudo tail -30 /var/log/msmtp.log
 echo test | sudo msmtp you@example.com
@@ -93,8 +93,16 @@ an unexpected reboot leaving a service down.
 
 ### Locked out of SSH
 
-The mesh VPN still works if the service is running. Failing that, a display
-and keyboard, then:
+Work out which kind of lockout it is:
+
+- **Your IP was banned** (CrowdSec, below): connect over the mesh VPN
+  address instead — it comes from a different IP.
+- **Key login fails** (lost or changed key): the VPN does not help, since SSH
+  still wants the key. Cockpit's terminal accepts your account password. It
+  only listens on the mesh VPN, so use the Tailscale address:
+  `https://TAILSCALE_IP:9090`.
+
+Failing both, a display and keyboard, then:
 
 ```bash
 sudo rm /etc/ssh/sshd_config.d/01-hardening.conf
@@ -105,8 +113,13 @@ sudo systemctl restart ssh
 
 ```bash
 sudo cscli decisions delete --ip YOUR_IP
-sudo cscli decisions add --range 192.168.0.0/24 --type bypass --duration 8760h
+sudo cscli allowlists list        # is your range actually in there?
+sudo cscli allowlists add homelab 192.168.0.0/24
 ```
+
+An allowlist stops new bans; it does not lift a ban that already exists,
+which is why the `delete` comes first. A `--type bypass` decision does
+nothing here — the bouncer ignores every type except `ban`.
 
 ### Power cut
 
@@ -154,15 +167,17 @@ points at power or thermal.
 ```bash
 sudo du -sh /var/* | sort -h | tail
 sudo journalctl --vacuum-time=14d
-sudo docker system prune -a      # careful: removes unused images
+sudo docker system prune -a      # careful: deletes STOPPED containers and every unused image
 ```
 
 ---
 
 ## Recovery
 
-**Forgotten password or username:** boot, hold Shift for GRUB, Advanced
-options, a recovery-mode entry, drop to a root shell.
+**Forgotten password or username:** boot and tap **Esc** as soon as the
+firmware logo goes (the Surface boots UEFI; holding Shift only works on
+old BIOS machines). In GRUB: Advanced options, a recovery-mode entry, drop
+to a root shell.
 
 ```bash
 mount -o remount,rw /
@@ -174,10 +189,15 @@ passwd USERNAME
 shell, then mount and inspect:
 
 ```bash
-sudo mount /dev/sda2 /mnt
+lsblk                        # find the internal SSD: the 119.2G disk
+sudo mount /dev/sda2 /mnt    # its partition 2 is root (sda1 is the 1G EFI)
 ls /mnt/home
 sudo chroot /mnt systemctl is-enabled ssh
 ```
+
+On this machine the SSD is normally `sda` (`sda1` 1G EFI, `sda2` 118.2G
+root). Booted from a USB stick, the stick can take `sda` instead, so go by
+the size in `lsblk`, not the name.
 
 Useful for resetting a password, re-enabling SSH, or checking whether the
 install ever completed, without reinstalling.

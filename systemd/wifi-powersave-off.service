@@ -2,8 +2,11 @@
 # idle if power saving is left on. For a headless box that means it
 # silently disappears from the network.
 #
-# Change wlp1s0 to match your interface (ip -brief link).
-# Check the path with `which iw` -- it may be /usr/bin/iw.
+# The interface name comes from WIFI_IFACE in /etc/homelab/homelab.env
+# (find yours with `ip -brief link`), falling back to wlp1s0. Because the
+# name lives in that file, re-running install.sh never clobbers it.
+#
+# iw is in /usr/sbin on Ubuntu (`command -v iw` to check).
 
 [Unit]
 Description=Disable WiFi power saving
@@ -12,7 +15,9 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/sbin/iw dev wlp1s0 set power_save off
+Environment=WIFI_IFACE=wlp1s0
+EnvironmentFile=-/etc/homelab/homelab.env
+ExecStart=/usr/sbin/iw dev ${WIFI_IFACE} set power_save off
 
 [Install]
 WantedBy=multi-user.target

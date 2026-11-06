@@ -79,9 +79,10 @@ tunnel, not on the home connection.
 monitored share a host and a power supply. The heartbeat partly covers this;
 nothing else does.
 
-**The battery is a decade old and the charge limit is unavailable** without
-UEFI access. Mitigated by habit, not by design.
-
+**The battery is over a decade old.** Surface UEFI's Battery Limit (under
+Kiosk Mode) is enabled, capping charge at 50%, which is the main protection
+for a cell that is always plugged in. Checking it for swelling is still a
+habit, not something the design enforces.
 **One Wi-Fi link, no wired fallback.** If the chip's driver regresses in a
 kernel update the machine disappears, and recovery means attaching a display.
 

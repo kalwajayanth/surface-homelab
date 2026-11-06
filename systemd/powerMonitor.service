@@ -1,0 +1,12 @@
+# Dead-man's switch: pings healthchecks.io with a status line
+# (battery, mains/battery, temperature, disk, load, uptime).
+# The ping URL comes from HEARTBEAT_URL in /etc/homelab/homelab.env.
+
+[Unit]
+Description=Heartbeat ping to healthchecks.io (battery, power, temperature)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/homelab/scripts/heartbeat.sh

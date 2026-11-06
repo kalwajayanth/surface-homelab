@@ -71,7 +71,9 @@ DOCKER_DOWN=$(docker ps -a --filter "status=exited" --format "{{.Names}}" 2>/dev
 
 # --- crowdsec (may not be installed) ---
 CS_BANS=$(cscli decisions list -o json 2>/dev/null | grep -c '"type": "ban"' || true)
-CS_ALERTS=$(cscli alerts list -o json 2>/dev/null | grep -c '"id"' || true)
+# Count "events_count", which appears once per alert. Counting "id" would
+# also count every decision nested inside each alert and inflate the total.
+CS_ALERTS=$(cscli alerts list -o json 2>/dev/null | grep -c '"events_count"' || true)
 
 # --- subject flags ---
 FLAGS=""

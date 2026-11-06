@@ -8,10 +8,12 @@ repeat it.
 ## Firmware screens do not appear on an external display
 
 On a Surface, the UEFI menu, the GRUB menu, boot errors and BitLocker
-recovery prompts render **only on the built-in panel**. The firmware's
-basic graphics driver lights up the internal display and never initialises
-the external port. Full output to HDMI or DisplayPort begins only once
-Windows or Linux loads a real graphics driver.
+recovery prompts render **only on the built-in panel** while it is connected.
+The Surface firmware's basic graphics driver lights up the internal display
+and does not drive the external port. Output to Mini DisplayPort begins only
+once Windows or Linux loads a real graphics driver. (Many other laptops behave
+the same way, but not all — desktops and some laptops do show their firmware
+on an external screen. This note is about the Surface.)
 
 So with a broken screen you cannot see the UEFI, and no cable, adapter,
 screen-mirroring app or remote-desktop tool changes that. They are all
@@ -30,19 +32,26 @@ Windows programs; none of them are running yet.
 
 ## Secure Boot blocks Linux installers
 
-Surfaces ship with Secure Boot trusting Microsoft's key only, so every
-Linux installer is refused. The setting lives in the UEFI, which is the
+Ubuntu's bootloader is signed with Microsoft's third-party key, so in
+principle it can boot with Secure Boot on. In practice Surface firmware may
+not trust that key — newer Surfaces have a "Microsoft only" vs "Microsoft and
+3rd party CA" choice, and the Pro 3 offers only Enable / Disable. On this
+machine, turning Secure Boot **off** is what finally let the installer boot,
+and it is the reliable route. The setting lives in the UEFI, which is the
 screen you cannot see. Nothing done from another machine can change it:
 network boot hits the same check, and moving the SSD elsewhere does not
-help because the refusal happens at boot on the Surface.
+help because the check happens at boot on the Surface.
 
 With the panel detached and the UEFI visible, set Secure Boot to
 **Disabled**.
 
-**Do not touch "Delete all secure boot keys."** That erases the trust
-database. Restoring it needs a "restore factory keys" option that may not
-exist on your firmware, and without it Windows may refuse to boot.
-Disabling is reversible; deleting may not be.
+**Do not touch "Delete all secure boot keys."** Deleting the keys does not
+stop Windows booting — with no keys the firmware drops into "setup mode",
+which checks nothing, so everything boots. The cost is that Secure Boot is
+then silently off, and it cannot be turned back on until the factory keys
+are restored, which needs an option your firmware may not have. BitLocker
+will also ask for its recovery key again. Disabling is a clean, reversible
+switch; deleting is not.
 
 ---
 
@@ -75,9 +84,12 @@ on screen.
 
 ## Thermals will shut the machine down
 
-The chassis is the heat sink. Wrapped in bubble wrap to protect the exposed
-internals, this machine idled at **79°C** and cut power repeatedly, mid-install
-more than once. Unwrapped on a hard surface it idles at **32–38°C**.
+The Pro 3 (i5 and i7 models) cools with a small fan that blows out through
+vents around the edge of the case, and the magnesium shell spreads the rest
+of the heat. Wrapped in bubble wrap to protect the exposed internals, this
+machine had both blocked: it idled at **79°C** and cut power repeatedly,
+mid-install more than once. Unwrapped on a hard surface it idles at
+**32–38°C**.
 
 A sudden power-off with no warning is almost always thermal or power, not
 software. If it happens during long CPU work like disk decryption or an OS
@@ -99,10 +111,13 @@ subiquity crashes on the unreadable section and relaunches, silently skipping
 the Profile step so **no user account is created**. The install "completes"
 and leaves a login prompt nothing can get past.
 
-Check for this from a live USB before reinstalling:
+Check for this from a live USB before reinstalling. Find the internal disk
+first: when you boot from a USB stick, the stick can take the name `sda` and
+push the SSD to `sdb`.
 
 ```bash
-sudo mount /dev/sda2 /mnt
+lsblk               # the SSD is the ~119G disk; partition 1 is the 1G EFI, partition 2 is root
+sudo mount /dev/sdX2 /mnt    # X from lsblk -- usually sda2
 ls /mnt/home        # empty means no user account
 ```
 
@@ -117,23 +132,32 @@ Or boot with `nomodeset console=tty1 loglevel=3` added to the GRUB kernel
 line.
 
 **Boot hanging with no login prompt** — `systemd-networkd-wait-online` with
-no network to wait for. Looks like a dead machine. Mask it.
+no network to wait for (up to about two minutes). Looks like a dead machine.
+Mask it — and spell the name exactly, because `systemctl mask` accepts any
+name without complaint. I masked two misspelled names and the real service
+stayed on. See SETUP Phase 2 for the exact commands and how to verify.
 
 ---
 
 ## Autoinstall, if the interactive installer will not cooperate
 
-A `user-data` file in an `autoinstall/` folder at the root of the USB stick
-answers every question, so there is nothing to see or click. `install/`
-contains an example.
+A `user-data` file answers every question, so there is nothing to see or
+click. `install/` contains an example. It did not work for me — the installer
+ignored it — but I now know why, and the fix is below.
 
-The usual reason it is ignored: Windows silently appends `.txt`. Turn on
-**View → File name extensions** and check. Forcing it explicitly also works
-— add this to the GRUB kernel line:
+The installer does **not** search an `autoinstall/` folder on the stick by
+itself. You have to point it there on the GRUB kernel line, and escape the
+semicolon, because GRUB treats a bare `;` as the end of the command:
 
 ```
-autoinstall ds=nocloud;s=/cdrom/autoinstall/
+autoinstall ds=nocloud\;s=/cdrom/autoinstall/
 ```
+
+On 24.04 and later it is simpler: name the file `autoinstall.yaml` and put it
+at the root of the stick (still add `autoinstall` to the kernel line, or it
+waits at an invisible confirmation prompt). Also check Windows has not
+appended `.txt` — turn on **View → File name extensions**. Step by step in
+[install/README.md](../install/README.md).
 
 ---
 

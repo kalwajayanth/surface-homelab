@@ -10,7 +10,15 @@ ALERT_EMAIL="${ALERT_EMAIL:-root}"
 
 lynis audit system --quiet --no-colors > /tmp/lynis-run.txt 2>&1 || true
 
-INDEX=$(grep -i "hardening index" /tmp/lynis-run.txt | tail -1 || true)
+# The report file always records the index; --quiet can hide it from the
+# screen output, so read the file first and fall back to the output.
+INDEX=$(grep '^hardening_index=' /var/log/lynis-report.dat 2>/dev/null \
+  | tail -1 | cut -d= -f2 || true)
+if [ -n "$INDEX" ]; then
+    INDEX="Hardening index : $INDEX"
+else
+    INDEX=$(grep -i "hardening index" /tmp/lynis-run.txt | tail -1 || true)
+fi
 WARNINGS=$(grep "^warning\[\]=" /var/log/lynis-report.dat 2>/dev/null \
   | sed 's/^warning\[\]=/  - /' || true)
 SUGGESTIONS=$(grep "^suggestion\[\]=" /var/log/lynis-report.dat 2>/dev/null \

@@ -52,21 +52,35 @@ will spend an evening hunting for it.
 
 ```bash
 sudo systemctl mask systemd-networkd-wait-online.service
+# If you install Cockpit later it brings NetworkManager, which adds a second one:
+sudo systemctl mask NetworkManager-wait-online.service
+
+systemctl is-enabled systemd-networkd-wait-online.service   # expect: masked
 ```
 
-Without this, a boot with no network sits at a blank screen for minutes
-with no login prompt. On a machine you cannot see, that is indistinguishable
-from a failed boot.
+Without this, a boot with no network sits at a blank screen for up to two
+minutes with no login prompt. On a machine you cannot see, that is
+indistinguishable from a failed boot. Masking only removes that pause — the
+Wi-Fi still connects in the background as soon as a network is available.
+
+**Copy the unit names exactly and run the check.** `systemctl mask` accepts
+any name, real or not, without an error. On my server two misspelled
+attempts (`systemd-network-wait-online`, `...wait-online.services`) "worked"
+and the real service stayed on.
 
 **Disable Wi-Fi power saving:**
 
 ```bash
 sudo apt install -y iw
 sudo cp systemd/wifi-powersave-off.service /etc/systemd/system/
-# edit the interface name and check `which iw` for the path
 sudo systemctl enable --now wifi-powersave-off.service
 iw dev wlp1s0 get power_save   # expect: off
 ```
+
+The unit uses `wlp1s0` unless `WIFI_IFACE` is set in
+`/etc/homelab/homelab.env` (created in Phase 7). If your interface has a
+different name, set it there rather than editing the unit — `install.sh`
+re-copies the unit and would overwrite your edit.
 
 ---
 
@@ -83,12 +97,14 @@ Confirm key login works **before** disabling passwords. A passphrase prompt
 is your key unlocking; a password prompt is the server. They look similar
 and mean opposite things.
 
-**Then harden.** Install `config/99-hardening.conf` as
-`/etc/ssh/sshd_config.d/01-hardening.conf` — the `01` prefix matters.
+**Then harden.** Install `config/01-hardening.conf` into
+`/etc/ssh/sshd_config.d/`, keeping the name — the `01` prefix matters.
 sshd takes the *first* occurrence of a setting, and Ubuntu ships
-`50-cloud-init.conf` with `PasswordAuthentication yes`.
+`50-cloud-init.conf` with `PasswordAuthentication yes`, so a file named
+`99-…` would be ignored.
 
 ```bash
+sudo cp config/01-hardening.conf /etc/ssh/sshd_config.d/
 sudo sshd -t
 sudo systemctl restart ssh
 sudo sshd -T | grep -iE 'passwordauthentication|permitrootlogin'
@@ -112,7 +128,8 @@ are stable per device.
 
 ```bash
 sudo ufw allow OpenSSH          # BEFORE enabling, or you lock yourself out
-sudo ufw allow 9090/tcp         # dashboard, if you use one
+# dashboard (Cockpit), if you use one -- only over the mesh VPN, not the LAN
+sudo ufw allow in on tailscale0 to any port 9090 proto tcp comment 'Cockpit via Tailscale only'
 sudo ufw enable
 
 sudo apt install -y unattended-upgrades
@@ -129,41 +146,61 @@ That is what the reboot flag in the daily report is for.
 ```bash
 curl -s https://install.crowdsec.net | sudo sh
 sudo apt install -y crowdsec
-sudo apt install -y crowdsec-firewall-bouncer-nftables
+sudo apt install -y crowdsec-firewall-bouncer-iptables
 ```
 
-nftables rather than iptables on Ubuntu 24.04. Detection and enforcement are
-separate: without a bouncer, CrowdSec watches but never blocks.
+Detection and enforcement are separate: without a bouncer, CrowdSec watches
+but never blocks. Either bouncer package works on Ubuntu 24.04 — its
+`iptables` command already writes nftables rules underneath
+(`iptables --version` shows `nf_tables`). Whichever you pick, the service is
+called **`crowdsec-firewall-bouncer`**; there is no unit named after the
+package.
 
 ```bash
+sudo systemctl status crowdsec-firewall-bouncer --no-pager
 sudo cscli bouncers list     # must not be empty
 sudo cscli metrics           # check it is reading /var/log/auth.log
 ```
 
-Whitelist yourself so a fat-fingered login cannot lock you out:
+Allowlist yourself so a fat-fingered login cannot lock you out:
 
 ```bash
-sudo cscli decisions add --range 192.168.0.0/24 --type bypass --duration 8760h
-sudo cscli decisions add --range 100.64.0.0/10 --type bypass --duration 8760h
+sudo cscli allowlists create homelab -d "LAN and tailnet"
+sudo cscli allowlists add homelab 192.168.0.0/24 100.64.0.0/10
+sudo cscli allowlists list
 ```
 
-The second is the mesh VPN range. Note the one-year expiry.
+The second range covers every mesh VPN (Tailscale) address. Allowlists need
+CrowdSec 1.6.8 or later.
+
+**Do not use `cscli decisions add --type bypass` for this.** CrowdSec accepts
+any word as a decision type, but the firewall bouncer only acts on `ban`. A
+"bypass" decision is stored and shown in `cscli decisions list`, yet it
+protects nothing — a ban for the same address is still enforced.
 
 ---
 
 ## Phase 6 — Mail
 
 ```bash
+echo "msmtp msmtp/apparmor boolean false" | sudo debconf-set-selections
 sudo apt install -y msmtp msmtp-mta bsd-mailx
 sudo cp config/msmtprc.example /etc/msmtprc
-sudo nano /etc/msmtprc
 sudo chmod 600 /etc/msmtprc
-echo "test" | sudo msmtp you@example.com
+sudo nano /etc/msmtprc
+echo "test" | sudo msmtp you@example.com      # your real address, not this placeholder
 ```
 
 Needs a Gmail **app password**, which needs 2-Step Verification, on a
 **personal** account. Workspace accounts usually block SMTP, and server
 scripts should not hold a work credential.
+
+The first line pre-answers the install's "Enable AppArmor support?" question
+with No (the default). If you answered Yes, turn it back off with
+`sudo dpkg-reconfigure msmtp`, or purge and reinstall after the first line,
+then unload the profile that is still in memory:
+`sudo apparmor_parser -R /etc/apparmor.d/usr.bin.msmtp`. Check with
+`sudo aa-status | grep msmtp`, which should print nothing.
 
 If nothing arrives: `sudo tail -20 /var/log/msmtp.log`.
 
@@ -175,20 +212,23 @@ If nothing arrives: `sudo tail -20 /var/log/msmtp.log`.
 sudo ./install/install.sh
 sudo nano /etc/homelab/homelab.env
 sudo apt install -y lynis
+sudo systemctl disable --now lynis.timer      # the package's own daily scan; homelab-lynis runs monthly and mails
 sudo /opt/homelab/scripts/health-report.sh    # test before scheduling
 sudo ./install/enable-timers.sh
 ```
 
 **Heartbeat.** Create a check at healthchecks.io with a 5-minute period and
-10-minute grace, then put the ping URL in `homelab.env` and re-run
-`enable-timers.sh`.
+10-minute grace, then put the ping URL in `homelab.env` (keep the quotes) and
+re-run `enable-timers.sh`. It runs as `powerMonitor.timer`. If you already had
+a hand-made unit with that name, `install.sh` replaces it, so copy the ping
+URL out of it first (`systemctl cat powerMonitor.service`).
 
-**Shutdown notice** (optional, needs mail working):
+**Shutdown notice** (optional, needs mail working). `install.sh` has already
+copied the unit; it just needs enabling. `--now` matters: the mail is sent
+when the unit is *stopped*, so it has to be running first.
 
 ```bash
-sudo cp systemd/shutdown-notify.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable shutdown-notify.service
+sudo systemctl enable --now shutdown-notify.service
 ```
 
 ---
@@ -203,5 +243,5 @@ Wait two minutes, then SSH in from your laptop with **nothing plugged into
 the server**. That is the real test. If it comes back by itself, you are done.
 
 ```bash
-systemctl list-timers --all | grep homelab
+systemctl list-timers --all | grep -E 'homelab|powerMonitor'
 ```

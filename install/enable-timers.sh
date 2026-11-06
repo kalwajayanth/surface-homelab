@@ -16,12 +16,12 @@ if compgen -G '/sys/class/power_supply/BAT*' > /dev/null; then
 fi
 
 if grep -q '^HEARTBEAT_URL="https' /etc/homelab/homelab.env 2>/dev/null; then
-    systemctl enable --now homelab-heartbeat.timer
-    systemctl start homelab-heartbeat.service
+    systemctl enable --now powerMonitor.timer
+    systemctl start powerMonitor.service
     echo "Heartbeat enabled."
 else
     echo "HEARTBEAT_URL not set -- skipping the heartbeat timer."
 fi
 
 echo
-systemctl list-timers --all | grep -E 'homelab|NEXT' || true
+systemctl list-timers --all | grep -E 'homelab|powerMonitor|NEXT' || true
